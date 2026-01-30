@@ -32,10 +32,10 @@ jobs:
           import sys, os
           sys.path.insert(0, ".")
           from cli.app_metadata import Metadata
-
+          
           version = Metadata.__version__
           print(f"Detected version: {version}")
-
+          
           # Write version to GitHub environment file
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"VERSION={version}\n")
@@ -58,6 +58,31 @@ jobs:
         run: |
           cd PYINSTALLER\dist
             "C:\Program Files\7-Zip\7z.exe" a -t7z ..\..\Inkpull-${{ env.VERSION }}.7z * ..\..\LICENSE
+
+      - name: Delete existing release and tag if version exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="inkpull-${{ env.VERSION }}"
+      
+          echo "Checking for existing release $VERSION"
+      
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Existing release found. Deleting..."
+            gh release delete "$VERSION" --yes
+          else
+            echo "No existing release found."
+          fi
+      
+          if git tag -l "$VERSION" | grep -q "$VERSION"; then
+            echo "Deleting local tag"
+            git tag -d "$VERSION"
+          fi
+      
+          echo "Deleting remote tag if it exists"
+          git push --delete origin "$VERSION" || true
+
 
       - name: Create Release and upload artifact
         uses: ncipollo/release-action@v1
