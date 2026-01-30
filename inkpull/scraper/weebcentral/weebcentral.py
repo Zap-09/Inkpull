@@ -57,7 +57,8 @@ class WeebCentral:
         src_list = find_all_src_of_chapter(ch_api_res)
 
         output_folder = (
-                Path(self.base_dl) /
+                Path(self.project_root) /
+                self.base_dl /
                 self.download_folder_name /
                 clean_folder_name(title) /
                 clean_folder_name(chapter_name)
