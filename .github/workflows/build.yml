@@ -1,0 +1,62 @@
+name: Build and Release Inkpull Windows EXE
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+jobs:
+    build:
+        runs-on: windows-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version-file: .python-version
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install pyinstaller
+
+            - name: Get version from Metadata
+              id: get_version
+              run: |
+                  import sys
+                  sys.path.insert(0, ".")
+                  from cli.app_metadata import Metadata
+                  print(f"::set-output name=version::{Metadata.__version__}")
+              shell: python
+
+            - name: Prepare build folders
+              run: mkdir PYINSTALLER
+
+            - name: Build EXE
+              shell: cmd
+              run: |
+                  pyinstaller ^
+                    -y ^
+                    --workpath PYINSTALLER\build ^
+                    --distpath PYINSTALLER\dist ^
+                    ".github\workflows\Inkpull.spec"
+
+            - name: Package EXE with 7-Zip
+              shell: cmd
+              run: |
+                  "C:\Program Files\7-Zip\7z.exe" a -t7z Inkpull-${{ steps.get_version.outputs.version }}.7z PYINSTALLER\dist\* PYINSTALLER\build\* LICENSE
+
+            - name: Create Release and upload artifact
+              uses: ncipollo/release-action@v1
+              with:
+                  artifacts: Inkpull-${{ steps.get_version.outputs.version }}.7z
+                  tag: inkpull-${{ steps.get_version.outputs.version }}
+                  name: Inkpull v${{ steps.get_version.outputs.version }}
+                  body: Automated Inkpull build
+                  draft: false
+                  prerelease: false
