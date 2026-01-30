@@ -56,7 +56,8 @@ jobs:
       - name: Package EXE with 7-Zip
         shell: cmd
         run: |
-          "C:\Program Files\7-Zip\7z.exe" a -t7z Inkpull-${{ env.VERSION }}.7z PYINSTALLER\dist\* PYINSTALLER\build\* LICENSE
+          cd PYINSTALLER\dist
+            "C:\Program Files\7-Zip\7z.exe" a -t7z ..\..\Inkpull-${{ env.VERSION }}.7z * ..\..\LICENSE
 
       - name: Create Release and upload artifact
         uses: ncipollo/release-action@v1
