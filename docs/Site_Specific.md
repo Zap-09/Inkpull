@@ -32,4 +32,4 @@
       
 
 
-[Back to main page](../README.md)
+[Back to main page](https://github.com/Zap-09/Inkpull)

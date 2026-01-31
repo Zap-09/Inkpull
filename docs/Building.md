@@ -10,4 +10,4 @@ Note: This is mainly for Windows. I can't make one for Mac/Linux cause I don't h
 6. Now after the building is done you should have a folder called `PYINSTALLER/dist/Inkpull` and your exe and `libs` folder should be there.
 
 
-[Back to main page](../README.md)
+[Back to main page](https://github.com/Zap-09/Inkpull)
