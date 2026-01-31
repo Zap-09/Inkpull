@@ -8,6 +8,9 @@ on:
 
 jobs:
   build:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      !contains(github.event.head_commit.message, '--no_build')
     runs-on: windows-latest
     permissions:
       contents: write
@@ -82,7 +85,10 @@ jobs:
       
           echo "Deleting remote tag if it exists"
           git push --delete origin "$VERSION" || true
-
+      - name: Set build date
+        shell: bash
+        run: |
+          echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Create Release and upload artifact
         uses: ncipollo/release-action@v1
@@ -90,7 +96,7 @@ jobs:
           artifacts: Inkpull-${{ env.VERSION }}.7z
           tag: inkpull-${{ env.VERSION }}
           name: Inkpull v${{ env.VERSION }}
-          body: Automated Inkpull build
+          body: "Automated Inkpull build. Date: ${{ env.BUILD_DATE }}"
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
