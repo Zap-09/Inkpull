@@ -27,8 +27,8 @@
         - use `-s` when you want to download the whole series
         - use `-c` when you just want one chapter
     - Examples:
-        - `inkpul Weebcentral -s <series url>`
-        - `inkpul Weebcentral -c <chapter url>`
+        - `inkpul weebcentral -s <series url>`
+        - `inkpul weebcentral -c <chapter url>`
       
 
 
