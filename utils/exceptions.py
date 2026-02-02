@@ -59,3 +59,14 @@ def check_status_code(status_code, url=None):
     else:
         pass
 
+class GenericException(Exception):
+    """Generic Exception"""
+    class Base(Exception):
+        """Base class for all generic exceptions"""
+        pass
+    class UserRejection(Base):
+        def __init__(self,ctx = None):
+            if ctx:
+                super().__init__(log(ctx,"error",_return=True))
+            else:
+                super().__init__(log("UserRejection","error",_return=True))

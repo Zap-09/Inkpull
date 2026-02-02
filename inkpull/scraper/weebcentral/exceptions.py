@@ -2,7 +2,7 @@ from utils import log
 
 class WeebCentralException(Exception):
     class Base(Exception):
-        """Base class for all ToonilyExceptions"""
+        """Base class for all WeebCentralExceptions"""
 
     class SeriesIdNotFound(Base):
         def __init__(self,ctx = None):

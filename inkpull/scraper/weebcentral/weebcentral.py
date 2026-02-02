@@ -83,10 +83,11 @@ class WeebCentral:
         chapter_list = find_all_chapter_href(self.chapter_list_html)
         chapter_list.reverse()
 
+
+        log(f"Download Started for: {self.title}")
         self._get_cover()
         self.make_metadata_file()
 
-        log(f"Download Started for: {self.title}")
 
         for chapter in chapter_list:
             try:

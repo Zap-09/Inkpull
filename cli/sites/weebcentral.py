@@ -11,7 +11,7 @@ def weebcentral_command():
     @optgroup.group("Download", cls=MutuallyExclusiveOptionGroup)
     @click.group(invoke_without_command=True)
     @optgroup.option("-s", "--series", help="URL for series")
-    @optgroup.option("-c", "--chapter", help="URL for series")
+    @optgroup.option("-c", "--chapter", help="URL for a chapter")
     @click.pass_context
     def weebcentral(ctx, series, chapter):
         mode = "series" if series else "chapter"
@@ -29,7 +29,7 @@ def weebcentral_config_command():
     @optgroup.option("-v", "--value", "value_key")
     # Another Group
     @optgroup.group("Delete")
-    @optgroup.option("-d", "--delete", "delete_key", help="Delete a config key from toonily")
+    @optgroup.option("-d", "--delete", "delete_key", help="Delete a config key")
     def config(set_key, value_key, delete_key):
         weebcentral_config = WeebCentralConfig()
 

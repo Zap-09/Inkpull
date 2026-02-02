@@ -1,9 +1,15 @@
 import click
 from cli.registry import SITE_REGISTRY, OTHER_REGISTRY, SITE_CONFIG_REGISTRY
-from .base_commands import show_about,show_version,config_call_back
+from .base_commands import show_about, show_version, config_call_back
 
 
-@click.group()
+
+class OrderedGroup(click.Group):
+    def list_commands(self, ctx):
+        return list(self.commands)
+
+
+@click.group(cls=OrderedGroup)
 @click.option(
     "--config",
     is_flag=True,
@@ -19,7 +25,7 @@ from .base_commands import show_about,show_version,config_call_back
     callback=show_about,
 )
 @click.option(
-    "-v","--version",
+    "-v", "--version",
     is_flag=True,
     expose_value=False,
     help="Show info about this program",
@@ -29,18 +35,21 @@ def cli():
     pass
 
 
-for site_name, command_factory in SITE_REGISTRY.items():
-    site_group = command_factory()
+for name in sorted(OTHER_REGISTRY):
+    cli.add_command(OTHER_REGISTRY[name](), name=name)
 
-    config_key = f"{site_name}_config"
-    if config_key in SITE_CONFIG_REGISTRY:
-        config_factory = SITE_CONFIG_REGISTRY[config_key]
-        site_group.add_command(config_factory(), name="config")
+
+for site_name in sorted(SITE_REGISTRY):
+    site_group = SITE_REGISTRY[site_name]()
+
+    if site_name in SITE_CONFIG_REGISTRY:
+        site_group.add_command(
+            SITE_CONFIG_REGISTRY[site_name](),
+            name="config"
+        )
 
     cli.add_command(site_group, name=site_name)
 
-for name, factory in OTHER_REGISTRY.items():
-    cli.add_command(factory(), name=name)
 
 if __name__ == "__main__":
     cli()

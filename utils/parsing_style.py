@@ -1,6 +1,15 @@
 from .helper_funcs import flatten
 
 
+def make_list_str(input_list: list | str) -> str:
+    if not input_list:
+        return ""
+    if isinstance(input_list, str):
+        return input_list
+    big_str = " ,".join(str(item) for item in input_list)
+    return big_str
+
+
 def mihon_style(
         title: str,
         author: str | None,
@@ -24,12 +33,11 @@ def mihon_style(
 
     metadata = {
         "title": title,
-        "author": author,
-        "artist": artist,
+        "author": make_list_str(author),
+        "artist": make_list_str(artist),
         "tags": tags,
         "description": desc,
         "status": status_dict.get(status.lower(), "0"),
     }
 
     return metadata
-

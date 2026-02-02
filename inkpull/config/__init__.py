@@ -1,8 +1,8 @@
-from .config import GlobalConfig
+from .config import GConfig, BaseSiteConfig
 
-GConfig = GlobalConfig()
 
 
 __all__ = [
-    "GConfig"
+    "GConfig",
+    "BaseSiteConfig"
 ]

@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from utils import log, find_project_root
+from utils import log, find_project_root, user_confirmation, GenericException
 
 
 class GlobalConfig:
@@ -21,22 +21,46 @@ class GlobalConfig:
 
     config_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def __init__(self, path: Path | None = None):
+    def __init__(self, path: Path | str | None = None):
         self.path: str | Path = path or self.config_file_path
-        self._config = {}
+        self._config: dict = {}
+
         try:
             with open(self.path, "r", encoding="utf-8") as f:
-                try:
-                    self._config = json.load(f)
-                    if not isinstance(self._config, dict):
-                        log("Config file invalid: root is not a dict, resetting", "warn")
-                        self._config = {}
-                except json.JSONDecodeError:
-                    log("Config file is empty or invalid JSON, initializing empty config", "warn")
-                    self._config = {}
+                raw = f.read().strip()
         except FileNotFoundError:
             log("Config file not found, initializing empty config", "warn")
-            self._config = {}
+            self.create_defaults()
+            return
+
+        if not raw:
+            log("Config file is empty, initializing empty config", "warn")
+            self.create_defaults()
+            return
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            log("Invalid json file", "warn")
+            if user_confirmation("Overwrite with default config?"):
+                self.create_defaults()
+                return
+            else:
+                raise GenericException.UserRejection(
+                    "Cannot continue without a valid config file."
+                )
+
+
+        if not isinstance(data, dict):
+            log("Config file invalid: root is not a dict.", "warn")
+            if user_confirmation("Overwrite with default config?"):
+                self.create_defaults()
+                return
+            else:
+                raise GenericException.UserRejection(
+                    "Cannot continue without a valid config file."
+                )
+        self._config = data
 
         self.ensure_defaults()
 
@@ -49,8 +73,7 @@ class GlobalConfig:
 
         if updated:
             self.save()
-            log("Looks like some of the config keys are missing.", "warn")
-            log("Default config values added", "warn")
+            log("Default config values added", "info")
 
     def save(self):
         with open(self.path, "w", encoding="utf-8") as f:
@@ -75,18 +98,53 @@ class GlobalConfig:
             log(f"Config updated: {key} = {value}", "info")
         self.save()
 
-    def delete_key(self,key_name:str):
+    def delete_key(self, key_name: str):
         result = self._config.pop(key_name, None)
         if result is None:
             log("Config key not found in config", "warn")
         else:
-            log(f"Successfully deleted config key '{key_name}'","info")
+            log(f"Successfully deleted config key '{key_name}'", "info")
 
 
-_global_config_instance = None
+GConfig = GlobalConfig()
 
-def get_global_config():
-    global _global_config_instance
-    if _global_config_instance is None:
-        _global_config_instance = GlobalConfig()
-    return _global_config_instance
+
+class BaseSiteConfig:
+    SITE_NAME: str = None
+    DEFAULTS: dict = {}
+
+    def __init__(self):
+        if not self.SITE_NAME:
+            raise ValueError("SITE_NAME must be defined in subclass")
+
+        self.site_name = self.SITE_NAME.lower()
+        self.config = GConfig
+        self._settings: dict = self.config.ensure_site(self.site_name)
+        self.ensure_defaults()
+
+    def ensure_defaults(self):
+        updated = False
+        for key, value in self.DEFAULTS.items():
+            if key not in self._settings:
+                self._settings[key] = value
+                updated = True
+
+        if updated:
+            log(f"Some configs were missing ({self.site_name}), updating...", "warn")
+            self.config.save()
+            log(f"{self.site_name} site defaults added", "info")
+
+    def find(self, key, default=None):
+        return self._settings.get(key, default)
+
+    def update_key(self, key, value):
+        self._settings[key] = value
+        self.config.save()
+        log(f"{self.site_name} config updated: {key}", "info")
+
+    def delete_key(self, key_name: str):
+        result = self._settings.pop(key_name, None)
+        if result is None:
+            log("Config key not found in config", "warn")
+        else:
+            log(f"Successfully deleted config key '{key_name}'", "info")
