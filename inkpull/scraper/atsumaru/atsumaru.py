@@ -123,12 +123,13 @@ class Atsumaru:
         status = get_status(self.series_info)
         comic_type = get_comic_type(self.series_info)
         synopsis = get_synopsis(self.series_info)
+        tags.append(comic_type)
 
         metadata = mihon_style(
             title=title,
             artist=str(author),
             author=str(author),
-            tags=tags.append(comic_type),
+            tags=tags,
             description=synopsis,
             status=status,
             other_info=(

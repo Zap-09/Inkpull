@@ -101,7 +101,7 @@ def get_synopsis(data: dict) -> str | None:
 
 
 def get_comic_type(data: dict) -> str | None:
-    comic_type = _find_json_tags(data, "synopsis")
+    comic_type = _find_json_tags(data, "type")
     if not comic_type:
         log("Could not find type tag", "warn")
         return None
@@ -117,7 +117,10 @@ def get_status(data: dict) -> str | None:
 
 
 def get_tags(data: dict) -> list:
-    tags = _find_json_tags(data, "tags")
+    tags = _find_json_tags(data, "genres")
+    if not tags:
+        log("Could not find genres tags", "warn")
+        return []
     tags_list = []
     for i in tags:
         tags_list.append(i.get("name"))
@@ -160,7 +163,7 @@ def make_chapter_urls(manga_id: str, text: dict, scanlation_id: str | None) -> l
 
         if scanlation_id is None or chapter_scanlation == scanlation_id:
             chapter_urls.append(
-                f"https://atsu.moe/read/{manga_id}/{chapter['id']}"
+                f"https://atsu.moe/read/{manga_id}/{chapter["id"]}"
             )
     if len(chapter_urls) <= 0:
         raise AtsumaruException.NoChaptersToDownload("Chapter_url list is less than 0")
