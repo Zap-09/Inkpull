@@ -1,7 +1,7 @@
 from .helper_funcs import flatten
 
 
-def make_list_str(input_list: list | str) -> str:
+def make_list_str(input_list: list | str | None) -> str:
     if not input_list:
         return ""
     if isinstance(input_list, str):
@@ -12,8 +12,8 @@ def make_list_str(input_list: list | str) -> str:
 
 def mihon_style(
         title: str,
-        author: str | None,
-        artist: str | None,
+        author: str | list | None,
+        artist: str | list | None,
         tags: list | None,
         description: str | None,
         status: str | None,

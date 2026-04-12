@@ -61,7 +61,7 @@ class Atsumaru:
                       clean_folder_name(title) /
                       clean_folder_name(chapter_name)
                       )
-        await self.downloader.download_concurrently(image_urls, output_dir=output_dir)
+        await self.downloader.download_images_concurrently(image_urls, output_dir=output_dir)
 
     def download_one_chapter(self, url):
         asyncio.run(
@@ -127,8 +127,8 @@ class Atsumaru:
 
         metadata = mihon_style(
             title=title,
-            artist=str(author),
-            author=str(author),
+            artist=author,
+            author=author,
             tags=tags,
             description=synopsis,
             status=status,
@@ -175,4 +175,4 @@ def Atsumaru_main(url: str, mode: str, scan_group: str):
         case "series":
             atsumaru.download_series(url, scan_group)
         case _:
-            log("Invalid mode")
+            log("Invalid mode","error")

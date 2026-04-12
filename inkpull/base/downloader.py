@@ -9,11 +9,12 @@ from ..config import GConfig
 class ImageDownloader:
     def __init__(self, headers=None, concurrency = None):
         self.headers = headers or {}
-        self.semaphore = None
 
         #------configs------#
         self.chunk_size = GConfig.global_get("chunk_size")
         self.concurrency = concurrency or GConfig.global_get("image_concurrency")
+
+        self.semaphore = asyncio.Semaphore(self.concurrency)
 
 
     async def _download_one(self, session, url, path):
@@ -25,16 +26,13 @@ class ImageDownloader:
                         await f.write(chunk)
 
 
-    async def download_concurrently(self, urls: list, output_dir: str | Path):
+    async def download_images_concurrently(self, urls: list, output_dir: str | Path):
         """
         Downloads images concurrently
     Args:
         urls (List[str]): list of urls to download.
         output_dir (Path or str): directory to save the image.
         """
-
-
-        self.semaphore = asyncio.Semaphore(self.concurrency)
 
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)

@@ -3,7 +3,7 @@ import colorama
 colorama.init()
 
 from .terminal import log, user_confirmation
-from .exceptions import check_status_code, ComicDlExceptions, GenericException
+from .exceptions import check_status_code, InkpullExceptions, GenericException
 from .parsing_style import mihon_style
 from .helper_funcs import (clean_folder_name,
                            find_project_root,
@@ -17,7 +17,7 @@ __all__ = [
     "user_confirmation",
     "find_project_root",
     "check_status_code",
-    "ComicDlExceptions",
+    "InkpullExceptions",
     "GenericException",
     "clean_folder_name",
     "remove_dupes_in_list",

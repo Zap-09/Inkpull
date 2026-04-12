@@ -63,7 +63,7 @@ class WeebCentral:
                 clean_folder_name(title) /
                 clean_folder_name(chapter_name)
         )
-        await self.downloader.download_concurrently(
+        await self.downloader.download_images_concurrently(
             urls=src_list,
             output_dir=output_folder
         )

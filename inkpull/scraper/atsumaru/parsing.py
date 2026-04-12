@@ -166,6 +166,6 @@ def make_chapter_urls(manga_id: str, text: dict, scanlation_id: str | None) -> l
                 f"https://atsu.moe/read/{manga_id}/{chapter["id"]}"
             )
     if len(chapter_urls) <= 0:
-        raise AtsumaruException.NoChaptersToDownload("Chapter_url list is less than 0")
+        raise AtsumaruException.NoChaptersToDownload("Chapter_url list is less than 1")
 
     return chapter_urls

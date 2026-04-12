@@ -9,6 +9,7 @@ class GlobalConfig:
         "chunk_size": 8192,
         "image_concurrency": 5,
         "timeout": 30,
+        "retries": 5,
         "Download_location": "Downloads",
         "impersonate_browser": "firefox",
         "ensure_ascii": False,
@@ -49,7 +50,6 @@ class GlobalConfig:
                 raise GenericException.UserRejection(
                     "Cannot continue without a valid config file."
                 )
-
 
         if not isinstance(data, dict):
             log("Config file invalid: root is not a dict.", "warn")

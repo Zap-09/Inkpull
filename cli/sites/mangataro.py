@@ -1,23 +1,19 @@
 import click
-from click_option_group import optgroup, MutuallyExclusiveOptionGroup, RequiredAllOptionGroup
+from click_option_group import optgroup, MutuallyExclusiveOptionGroup
 
-from inkpull.scraper import Weebcentral_main
-from inkpull.scraper.weebcentral.config import WeebCentralConfig
+from inkpull.scraper import MangaTaro_main
 
-from utils import log
-
-
-def weebcentral_command():
+def mangataro_command():
     @optgroup.group("Download", cls=MutuallyExclusiveOptionGroup)
     @click.group(invoke_without_command=True)
     @optgroup.option("-s", "--series", help="URL for series")
     @optgroup.option("-c", "--chapter", help="URL for a chapter")
     @click.pass_context
-    def weebcentral(ctx, series, chapter):
+    def mangataro(ctx, series, chapter):
         mode = "series" if series else "chapter"
         url = series or chapter
         if ctx.invoked_subcommand is None:
-            Weebcentral_main(url=url, mode=mode)
+            MangaTaro_main(url=url, mode=mode)
 
-    return weebcentral
+    return mangataro
 

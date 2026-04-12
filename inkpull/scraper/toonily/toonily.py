@@ -44,8 +44,8 @@ class Toonily:
                                  cookie=self.cookie)
         self.downloader = ImageDownloader(headers=self.headers)
         # ------metadata------ #
-        self.series_html = None
-        self.series_title = None
+        self.series_html: str = ""
+        self.series_title: str = ""
 
     async def _download_series_helper(self, url: str):
         """ Helper function to download the series """
@@ -73,7 +73,7 @@ class Toonily:
                               title /
                               c_name)
 
-                await self.downloader.download_concurrently(
+                await self.downloader.download_images_concurrently(
                     urls=image_src_list,
                     output_dir=output_dir,
                 )
@@ -104,7 +104,7 @@ class Toonily:
                       chapter_name)
 
         asyncio.run(
-            self.downloader.download_concurrently(
+            self.downloader.download_images_concurrently(
                 urls=chapter_images,
                 output_dir=str(output_dir))
         )
@@ -148,9 +148,9 @@ class Toonily:
             title=title,
             author=other_mata_data.get("writer", None),
             artist=other_mata_data.get("artist", None),
-            tags= tags_genre,
+            tags=tags_genre,
             status=status,
-            description= summary,
+            description=summary,
             other_info=(
                 alt_title,
                 f"Rating: {str(rating)}\nViews: {views}",

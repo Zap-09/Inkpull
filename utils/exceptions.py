@@ -1,18 +1,18 @@
 from . import log
 
-class ComicDlExceptions(Exception):
+class InkpullExceptions(Exception):
     class Base(Exception):
-        """Base class for all ComicDlExceptions"""
+        """Base class for all InkpullExceptions"""
         pass
 
     class NotFound(Base):
         """Status Code 404"""
         def __init__(self, url=None):
             if url:
-                super().__init__(log(f"Endpoint Not Found, Status Code 404",
+                super().__init__(log(f"Endpoint Not Found, Status Code 404: '{url}'",
                                      "error",_return=True))
             else:
-                super().__init__(log(f"Endpoint Not Found, Status Code 404: '{url}'",
+                super().__init__(log("Endpoint Not Found, Status Code 404",
                                      "error",_return=True))
 
     class BadRequest(Base):
@@ -27,10 +27,10 @@ class ComicDlExceptions(Exception):
         """Status Code 401"""
         def __init__(self, url=None):
             if url:
-                super().__init__(log("Unauthorized, Status Code 401",
+                super().__init__(log(f"Unauthorized, Status Code 401: '{url}'",
                                      "error",_return=True))
             else:
-                super().__init__(log(f"Unauthorized, Status Code 401: '{url}'",
+                super().__init__(log("Unauthorized, Status Code 401",
                                      "error",_return=True))
 
     class Forbidden(Base):
@@ -49,13 +49,13 @@ def check_status_code(status_code, url=None):
     if status_code == 200:
         return
     if status_code == 404:
-        raise ComicDlExceptions.NotFound(url)
+        raise InkpullExceptions.NotFound(url)
     elif status_code == 400:
-        raise ComicDlExceptions.BadRequest(url)
+        raise InkpullExceptions.BadRequest(url)
     elif status_code == 401:
-        raise ComicDlExceptions.Unauthorized(url)
+        raise InkpullExceptions.Unauthorized(url)
     elif status_code == 403:
-        raise ComicDlExceptions.Forbidden(url)
+        raise InkpullExceptions.Forbidden(url)
     else:
         pass
 

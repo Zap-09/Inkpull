@@ -5,7 +5,8 @@ def log(msg: str,
         level: Literal["info", "warn", "error", "conf"] = "info",
         *,
         _return: bool = False,
-        _end="\n"):
+        _end="\n",
+        _noformat:bool = False):
     """
     Logs a message to the terminal with color based on level.
 
@@ -14,6 +15,7 @@ def log(msg: str,
         level (str, optional): One of "info", "warn", "error", "conf". Default is "info".
         _return (bool, optional): Whether to return the message or print it. Defaults to False.
         _end (str, optional): The end of the message. Defaults to "\n".
+        _noformat (bool, optional): Whether to add the level prefix
     """
     colors = {
         "info": "\033[92m",  # Green
@@ -24,10 +26,13 @@ def log(msg: str,
 
     reset = "\033[0m"
 
-    level = level.lower()
+    level: str = level.lower()
     color = colors.get(level, colors["info"])
 
-    message = f"{color}[{level.upper()}] {msg}{reset}"
+    if _noformat:
+        message = f"{color}{msg}{reset}"
+    else:
+        message = f"{color}[{level.upper()}] {msg}{reset}"
 
     if _return:
         return message

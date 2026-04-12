@@ -23,23 +23,3 @@ def atsumaru_command():
 
     return atsumaru
 
-
-def atsumaru_config_command():
-    @click.command()
-    @optgroup.group("Actions", cls=RequiredAllOptionGroup)
-    @optgroup.option("-s", "--set", "set_key")
-    @optgroup.option("-v", "--value", "value_key")
-    # Another Group
-    @optgroup.group("Delete")
-    @optgroup.option("-d", "--delete", "delete_key", help="Delete a config key")
-    def config(set_key, value_key, delete_key):
-        atsumaru_config = AtsumaruConfig()
-
-        if set_key and value_key:
-            atsumaru_config.update_key(set_key, value_key)
-        elif delete_key:
-            atsumaru_config.delete_key(delete_key)
-        else:
-            log("Invalid flag combinations","error")
-
-    return config
