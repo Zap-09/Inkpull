@@ -2,10 +2,12 @@ from .toonily import toonily_command
 from .weebcentral import weebcentral_command
 from .atsumaru import atsumaru_command
 from .mangataro import mangataro_command
+from .mangakatana import mangakatana_command
 
 __all__ = [
     "atsumaru_command",
     "toonily_command",
     "weebcentral_command",
-    "mangataro_command"
+    "mangataro_command",
+    "mangakatana_command"
 ]

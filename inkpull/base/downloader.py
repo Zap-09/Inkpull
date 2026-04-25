@@ -4,27 +4,35 @@ import aiofiles
 from pathlib import Path
 
 from utils import log
-from ..config import GConfig
+from ..config.runtime import GConfig
+
 
 class ImageDownloader:
-    def __init__(self, headers=None, concurrency = None):
+    def __init__(self, headers=None, concurrency=None):
         self.headers = headers or {}
 
-        #------configs------#
+        # ------configs------#
         self.chunk_size = GConfig.global_get("chunk_size")
         self.concurrency = concurrency or GConfig.global_get("image_concurrency")
+        self.retries = GConfig.global_get("retries", 5)
 
         self.semaphore = asyncio.Semaphore(self.concurrency)
 
-
     async def _download_one(self, session, url, path):
         async with self.semaphore:
-            async with session.get(url) as resp:
-                resp.raise_for_status()
-                async with aiofiles.open(path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(self.chunk_size):
-                        await f.write(chunk)
-
+            for attempt in range((self.retries + 1)):
+                try:
+                    async with session.get(url) as resp:
+                        resp.raise_for_status()
+                        async with aiofiles.open(path, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(self.chunk_size):
+                                await f.write(chunk)
+                    break
+                except asyncio.TimeoutError:
+                    if attempt == self.retries:
+                        log(f"Failed image: {url}", "warn")
+                        raise
+                    await asyncio.sleep(2)
 
     async def download_images_concurrently(self, urls: list, output_dir: str | Path):
         """
@@ -39,8 +47,8 @@ class ImageDownloader:
 
         timeout = aiohttp.ClientTimeout(total=GConfig.global_get("timeout"))
         async with aiohttp.ClientSession(
-            headers=self.headers,
-            timeout=timeout
+                headers=self.headers,
+                timeout=timeout
         ) as session:
             tasks = []
             for i, url in enumerate(urls, 1):
@@ -48,5 +56,4 @@ class ImageDownloader:
                 path = output_dir / f"{i:03d}{ext}"
                 tasks.append(self._download_one(session, url, path))
             await asyncio.gather(*tasks)
-        log(f"Downloaded {output_dir.name}")
-
+        log(f"Downloaded: {output_dir.name}")

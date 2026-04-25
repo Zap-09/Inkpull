@@ -1,4 +1,5 @@
 import time
+import random
 
 from curl_cffi import requests
 from curl_cffi.requests.exceptions import Timeout, HTTPError, ConnectionError
@@ -6,15 +7,15 @@ from curl_cffi.requests.exceptions import Timeout, HTTPError, ConnectionError
 from utils import check_status_code, log
 
 from typing import Literal
-from ..config import GConfig
+from ..config.runtime import GConfig
 
 
 class HttpClient:
-    def __init__(self, header=None,
-                 cookie=None,
+    def __init__(self, headers=None,
+                 cookies=None,
                  impersonate=GConfig.global_get("impersonate_browser")):
-        self.header = header
-        self.cookie = cookie
+        self.header = headers
+        self.cookie = cookies
         self.impersonate = impersonate
         self.timeout = GConfig.global_get("timeout")
         self.retries = GConfig.global_get("retries")
@@ -59,7 +60,7 @@ class HttpClient:
             except (ConnectionError, Timeout, HTTPError,) as e:
                 last_error = e
                 log(f"Retry {i + 1}/{self.retries} failed: {url} -> {e}", level="warn")
-                time.sleep(2 ** i)
+                time.sleep((2 ** i) + random.uniform(0, 1))
 
         raise last_error
 

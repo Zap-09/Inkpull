@@ -39,7 +39,6 @@ jobs:
           version = Metadata.__version__
           print(f"Detected version: {version}")
           
-          # Write version to GitHub environment file
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"VERSION={version}\n")
         shell: python
@@ -60,7 +59,7 @@ jobs:
         shell: cmd
         run: |
           cd PYINSTALLER\dist
-            "C:\Program Files\7-Zip\7z.exe" a -t7z ..\..\Inkpull-${{ env.VERSION }}.7z * ..\..\LICENSE
+          "C:\Program Files\7-Zip\7z.exe" a -t7z ..\..\Inkpull-${{ env.VERSION }}.7z * ..\..\LICENSE
 
       - name: Delete existing release and tag if version exists
         shell: bash
@@ -68,27 +67,37 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="inkpull-${{ env.VERSION }}"
-      
+          
           echo "Checking for existing release $VERSION"
-      
+          
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "Existing release found. Deleting..."
             gh release delete "$VERSION" --yes
           else
             echo "No existing release found."
           fi
-      
+          
           if git tag -l "$VERSION" | grep -q "$VERSION"; then
             echo "Deleting local tag"
             git tag -d "$VERSION"
           fi
-      
+          
           echo "Deleting remote tag if it exists"
           git push --delete origin "$VERSION" || true
+
       - name: Set build date
         shell: bash
         run: |
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Set release body
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "RELEASE_BODY=${{ github.event.head_commit.message }}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_BODY=Manual build (no commit message available)" >> $GITHUB_ENV
+          fi
 
       - name: Create Release and upload artifact
         uses: ncipollo/release-action@v1
@@ -96,7 +105,10 @@ jobs:
           artifacts: Inkpull-${{ env.VERSION }}.7z
           tag: inkpull-${{ env.VERSION }}
           name: Inkpull v${{ env.VERSION }}
-          body: "Automated Inkpull build. Date: ${{ env.BUILD_DATE }}"
+          body: |
+            ${{ env.RELEASE_BODY }}
+
+            Build date: ${{ env.BUILD_DATE }}
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}

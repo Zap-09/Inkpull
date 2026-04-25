@@ -1,205 +1,193 @@
+import re
 from bs4 import BeautifulSoup
 from .exceptions import ToonilyException
 
 from utils import log
 
 
-def find_title_in_series(html: str, url: str) -> str:
-    """ Get the title from the main page not the chapter page """
-    soup = BeautifulSoup(html, "lxml")
-    post_title = soup.select_one(".post-title")
+def chapter_name(html: BeautifulSoup) -> str:
+    title = html.select_one("ol.breadcrumb li.active")
+    if title is None:
+        raise ToonilyException("Could not find chapter name")
 
-    if not post_title:
-        raise ToonilyException.ChapterBoxNotFound(url)
-
-    for badge in post_title.select(".manga-title-badges"):
-        badge.decompose()
-    return post_title.get_text(strip=True)
+    return title.get_text(strip=True)
 
 
-def find_all_chapters_and_names(html: str, url: str) -> list[tuple]:
-    """ Find all the chapters and names in the main page """
-    soup = BeautifulSoup(html, "lxml")
+def comic_name(html: BeautifulSoup) -> str:
+    breadcrumb = html.select_one("ol.breadcrumb")
+    if breadcrumb is None:
+        raise ToonilyException(
+            f"Chapter name was not found because breadcrumb is missing. CSS selector: 'ol.breadcrumb'")
 
-    all_chapters = soup.select("li.wp-manga-chapter")
-    if not all_chapters:
-        raise ToonilyException.ChapterBoxNotFound(url)
+    list_items = breadcrumb.select("li a")
+    if not list_items:
+        raise ToonilyException(
+            f"Chapter name was not found because breadcrumb is missing. CSS selector: 'li a'")
 
-    chapter_names = []
-    for chapter in all_chapters:
-        chapter_name = chapter.select_one("a").text
-        chapter_href = chapter.select_one("a")["href"]
-        chapter_names.append((chapter_name, chapter_href))
-    chapter_names.reverse()
-    return chapter_names
+    return list_items[-1].get_text(strip=True)
 
 
-# Chapter specific parsing
+def chapter_images(html: BeautifulSoup) -> list[str]:
+    chapter_content = html.select_one("div.reading-content")
+    if chapter_content is None:
+        raise ToonilyException(
+            "Chapter images not found because chapter_content is missing. CSS selector: 'div.reading-content'")
 
-def find_chapter_images_of_chapters(html: str, url: str) -> list[str]:
-    """Find all the images of a chapter"""
-    soup = BeautifulSoup(html, "lxml")
-    reading_content = soup.select_one(".reading-content")
+    images = chapter_content.select("img")
 
-    if not reading_content:
-        raise ToonilyException.ChapterBoxNotFound(url)
+    images_src = []
+    for item in images:
+        src = item["src"]
+        images_src.append(src)
 
-    images = []
-    for image in reading_content.find_all("img"):
-        images.append(image["src"])
-    return images
-
-
-def find_chapter_name_in_chapter(html: str, url: str) -> str:
-    """ Find the series title of the chapter """
-    soup = BeautifulSoup(html, "lxml")
-    chapter_name = soup.select_one(".chapter-trigger").get_text(strip=True)
-    if not chapter_name:
-        raise ToonilyException.ChapterNameNotFound(url)
-    return chapter_name
+    return images_src
 
 
-def find_title_in_chapter(html: str, url: str) -> str:
-    """ Find the title of the chapter """
-    soup = BeautifulSoup(html, "lxml")
-    links = soup.select("ol.breadcrumb li a")
+def chapter_list(html: BeautifulSoup) -> list[str]:
+    manga_content = html.select_one("div#manga-content-tabs")
+    if manga_content is None:
+        raise ToonilyException("Chapter section not found. CSS selector: '#manga-content-tabs'")
 
-    if len(links) < 2:
-        raise ToonilyException.TitleNameNotFoundInChapter(url)
+    chapters = manga_content.select("li.wp-manga-chapter")
 
-    return links[1].get_text(strip=True)
+    chapters_href = []
+    for chapter in chapters:
+        a_tag = chapter.select_one("a")
+        chapters_href.append(a_tag["href"])
+
+    chapters_href.reverse()
+    return chapters_href
 
 
-# Metadata related parsing
-
-def get_cover_image_url(html:str, url:str) -> str | None:
-    soup = BeautifulSoup(html, "lxml")
-    cover_box = soup.select_one(".summary_image")
-    image = cover_box.select_one("img")
-    if image:
-        return image["src"]
+def series_title(html: BeautifulSoup) -> str:
+    h1 = html.select_one("h1")
+    name = h1.find(text=True, recursive=False).strip()
+    if name:
+        return name
     else:
-        log(f"No cover image for '{url}'", "warn")
+        raise ToonilyException(f"Series title not found.")
+
+
+def cover_src(html: BeautifulSoup) -> str | None:
+    cover_box = html.select_one("div.summary_image")
+    if cover_box is None:
+        log(f"Cover box was not found", "error")
         return None
+    return cover_box.select_one("img")["src"]
 
 
-
-def get_series_tags(html: str, url: str) -> list[str] | None:
-    """ Gets all the tags of the series """
-    soup = BeautifulSoup(html, "lxml")
-    tag_box = soup.select_one(".wp-manga-tags-list")
-    tags = tag_box.select("a")
-
-    tag_list = []
-    for tag in tags:
-        tag_list.append((tag.get_text(strip=True)).lstrip("#"))
-    if not tag_list:
-        log(f"No tags found. Series '{url}'", "warn")
-        return None
-    return tag_list
-
-
-def _filter_manga_info(soup: BeautifulSoup, css_selector: str, selector_name: str, name: str) -> str | None:
+def _filter_manga_info(soup: BeautifulSoup,
+                       css_selector: str,
+                       selector_name: str,
+                       ) -> str | None:
     """ Helper fn for metadata parsing """
     target = soup.select_one(css_selector)
 
     if not target:
-        log(f"{selector_name} was not found on '{name}'", "warn")
+        log(f"{selector_name} was not found.", "warn")
         return None
     else:
-        return target.get_text(strip=True)
+        return target.get_text(strip=True, separator=" ")  # type: ignore
 
 
-def get_series_genre(html: str, series_title: str) -> list[str] | None:
-    """ Gets all the genres of the series """
-    # Yes tags and Genre(s) are different in Toonily
-    soup = BeautifulSoup(html, "lxml")
-
-    genre_str = _filter_manga_info(
-        soup,
-        ".post-content_item:has(h5:-soup-contains('Genre(s)')) .summary-content",
-        "Genre(s)",
-        series_title
-    )
-    if not genre_str:
-        return None
-
-    genres = [g.strip() for g in genre_str.split(",") if g.strip()]
-    return genres
-
-
-def get_metadata(html: str, series_title: str) -> dict[str, str | None] | None:
-    soup = BeautifulSoup(html, "lxml")
-
+def alternative_titles(html: BeautifulSoup) -> str | None:
     alt_titles = _filter_manga_info(
-        soup,
+        html,
         ".post-content_item:has(h5:-soup-contains('Alt Name')) .summary-content",
         "Alt Name",
-        series_title
     )
+    return alt_titles
 
-    writer = _filter_manga_info(
-        soup,
+
+def authors(html: BeautifulSoup) -> str | None:
+    author_ = _filter_manga_info(
+        html,
         ".post-content_item:has(h5:-soup-contains('Writer(s)')) .summary-content",
         "Writer(s)",
-        series_title
     )
+    return author_ if author_ else None
 
-    artist = _filter_manga_info(
-        soup,
+
+def artist(html: BeautifulSoup) -> str | None:
+    artist_ = _filter_manga_info(
+        html,
         ".post-content_item:has(h5:-soup-contains('Artist(s)')) .summary-content",
         "Artist(s)",
-        series_title
     )
-    return {
-        "alt_titles": alt_titles,
-        "writer": writer,
-        "artist": artist
-    }
+    return artist_ if artist_ else None
 
 
-def comic_status(html: str, series_title: str) -> str | None:
-    soup = BeautifulSoup(html, "lxml")
-    status = _filter_manga_info(
-        soup,
-        ".post-content_item:has(h5:-soup-contains('Status')) .summary-content"
-        ,
+def description(html: BeautifulSoup) -> str:
+    target = html.select_one(".summary__content")
+
+    if not target:
+        return ""
+
+    paragraphs = []
+
+    for p in target.find_all("p"):
+        text = p.get_text(separator=" ", strip=True)  # type:ignore
+
+        if not text:
+            continue
+
+        text = re.sub(r"\s+,", ",", text)
+        text = re.sub(r"\s+\.", ".", text)
+        text = re.sub(r"\s{2,}", " ", text)
+
+        paragraphs.append(text.strip())
+
+    if not paragraphs:
+        return target.get_text(separator=" ", strip=True)  # type:ignore
+
+    return "\n\n".join(paragraphs)
+
+
+def comic_status(html: BeautifulSoup) -> str | None:
+    status_ = _filter_manga_info(
+        html,
+        ".post-content_item:has(h5:-soup-contains('Status')) .summary-content",
         "Status",
-        series_title
     )
-    status = status.lower()
-    return str(status)
+    return status_ if status_ else None
 
-def gets_views_and_ratings(html: str, series_title: str) -> dict | None:
-    """ Gets the view count and ratings of the series """
 
-    soup = BeautifulSoup(html, "lxml")
-
-    rating = _filter_manga_info(
-        soup,
+def rating(html: BeautifulSoup) -> str:
+    rating_ = _filter_manga_info(
+        html,
         "#averagerate",
         "Rating",
-        series_title
     )
+    return rating_ if rating_ else "0.0"
 
+
+def view_count(html: BeautifulSoup) -> str | None:
     views = _filter_manga_info(
-        soup,
+        html,
         ".manga-rate-view-comment .item:last-child",
-        "View Count",
-        series_title
+        "Views Count",
     )
-    return {
-        "views": views,
-        "rating": rating
-    }
+    return views if views else None
 
 
-def get_summary(html: str, series_title: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
-    summary = _filter_manga_info(
-        soup,
-        ".summary__content",
-        "Summary",
-        series_title
+def genres(html: BeautifulSoup) -> list[str]:
+    genre_str = _filter_manga_info(
+        html,
+        ".post-content_item:has(h5:-soup-contains('Genre(s)')) .summary-content",
+        "Genre(s)"
     )
-    return summary
+    if not genre_str:
+        return []
+
+    genres_ = [g.strip() for g in genre_str.split(",") if g.strip()]
+    return genres_
+
+
+def tags(html: BeautifulSoup) -> list[str]:
+    tag_box = html.select_one(".wp-manga-tags-list")
+    tags_ = tag_box.select("a")
+
+    tag_list = []
+    for tag in tags_:
+        tag_list.append((tag.get_text(strip=True)).lstrip("#"))
+    return tag_list

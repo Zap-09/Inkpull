@@ -6,23 +6,22 @@ from bs4 import BeautifulSoup
 from .exceptions import MangaTatoException
 
 
-def find_chapter_id(url: str) -> str:
+def chapter_id(url: str) -> str:
     last_part = url.rsplit("/", 1)[-1]
     if not "-" in last_part:
-        raise MangaTatoException.ChapterIdNotFound(url)
+        raise MangaTatoException(f"Chapter ID not found in url. {url}")
     return last_part.split("-")[-1]
 
 
-def find_title_chapter_name(html: str) -> tuple[str, str]:
-    soup = BeautifulSoup(html, "lxml")
+def extract_title_and_chapter(soup: BeautifulSoup) -> tuple[str, str]:
     reader_tag = soup.select_one("#reader-media")
     if not reader_tag:
-        raise MangaTatoException.TitleNotFound(html)
+        raise MangaTatoException("Comic title and chapter name not found. CSS selector: #reader-media")
 
     chapter_title = reader_tag.get("data-chapter-title")
 
     if not chapter_title:
-        raise MangaTatoException.TitleNotFound(html)
+        raise MangaTatoException("Comic chapter name not found")
 
     match = re.search(r'Chapter \d+(?:\.\d+)?(?:\s*-\s*.+)?$', chapter_title)
     if match:
@@ -30,10 +29,10 @@ def find_title_chapter_name(html: str) -> tuple[str, str]:
         title = chapter_title[:match.start()].strip()
         return title, chapter_label
     else:
-        raise MangaTatoException.TitleNotFound(chapter_title)
+        raise MangaTatoException("Comic chapter name not found. Regex found no match.")
 
 
-def get_image_urls(json_data: dict) -> list:
+def image_urls(json_data: dict) -> list:
     image_list = json_data.get("images")
     if isinstance(image_list, list):
         return image_list
@@ -43,66 +42,45 @@ def get_image_urls(json_data: dict) -> list:
 
 # series mode parsing
 
-def get_manga_id(html: str) -> int:
-    soup = BeautifulSoup(html, "lxml")
+def manga_id(soup: BeautifulSoup) -> int:
     body = soup.select_one("body")
     if not body:
-        raise MangaTatoException.BodyNotFoundInHtml(html)
+        raise MangaTatoException("Body not found in html")
 
-    manga_id = body.get("data-manga-id")
-    if not manga_id:
-        raise MangaTatoException.MangaIdNotFound(html)
+    manga_id_ = body.get("data-manga-id")
+    if not manga_id_:
+        raise MangaTatoException("Manga id not found in html tag.")
 
-    return int(manga_id)
+    return int(manga_id_)
 
 
-def parse_chapter_urls(info: list | None) -> list:
-    if info is None:
-        raise MangaTatoException.ChapterUrlNotFound()
+def comic_title(soup: BeautifulSoup) -> str:
+    selector = "h1.text-2xl.lg\\:text-3xl.xl\\:text-4xl.font-bold.text-neutral-100.tracking-tight.mb-1"
+    title_div = soup.select_one(selector)
+
+    if not title_div:
+        raise MangaTatoException(
+            "Comic title not found. CSS selector:\n \"h1.text-2xl.lg\\:text-3xl.xl\\:text-4xl.font-bold.text-neutral-100.tracking-tight.mb-1\"")
+    return title_div.text.strip()
+
+
+def parse_chapter_urls(json_data: list | None) -> list:
+    if json_data is None:
+        raise MangaTatoException("Chapter list not found")
 
     chapter_link: list = []
-    for items in info:
+    for items in json_data:
         url = items.get("url")
         if url:
             chapter_link.append(url)
 
     if len(chapter_link) < 0:
-        raise MangaTatoException.ChapterUrlNotFound()
+        raise MangaTatoException("Chapter list is less than 1")
 
     return chapter_link
 
 
-def get_title(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
-    selector = "h1.text-2xl.lg\\:text-3xl.xl\\:text-4xl.font-bold.text-neutral-100.tracking-tight.mb-1"
-    title_div = soup.select_one(selector)
-
-    if not title_div:
-        log("No title found, returning empty string ", "warn")
-        return ""
-    return title_div.text.strip()
-
-
-def find_cover_image(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
-    cover_img = soup.select_one("img.w-full.h-auto.aspect-\\[2\\/3\\].object-cover")
-    if not cover_img:
-        log("Could not find cover image", "warn")
-        return ""
-    return cover_img.get("src")
-
-
-def find_author_and_artist(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
-    author_div = soup.select_one("div.text-sm.text-neutral-200")
-    if not author_div:
-        log("Could not find author and artist", "warn")
-
-    return author_div.text.strip()
-
-
-def get_alt_title(html: str):
-    soup = BeautifulSoup(html, "lxml")
+def alt_title(soup: BeautifulSoup) -> str:
     alt_title_section = soup.select_one("p.text-sm.text-neutral-400.mb-3.sm\\:mb-4")
 
     if not alt_title_section:
@@ -112,9 +90,15 @@ def get_alt_title(html: str):
     return alt_title_section.text.strip()
 
 
-def get_tags(html: str) -> list:
-    soup = BeautifulSoup(html, "lxml")
+def author_and_artist(soup: BeautifulSoup) -> str:
+    author_div = soup.select_one("div.text-sm.text-neutral-200")
+    if not author_div:
+        log("Could not find author and artist", "warn")
 
+    return author_div.text.strip()
+
+
+def tags(soup: BeautifulSoup) -> list:
     tag_div = soup.select_one("div.flex.flex-wrap.gap-1\\.5.sm\\:gap-2")
     if not tag_div:
         log("Could not find tag div, returning empty list ", "warn")
@@ -129,8 +113,7 @@ def get_tags(html: str) -> list:
     return raw_tags.strip().split()
 
 
-def find_description(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
+def description(soup: BeautifulSoup) -> str:
     p_tags = soup.select_one("div#description-content-tab")
     if not p_tags:
         log("No description found, returning empty string", "warn")
@@ -138,8 +121,7 @@ def find_description(html: str) -> str:
     return p_tags.text.strip()
 
 
-def comic_status(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
+def comic_status(soup: BeautifulSoup) -> str:
     info_section = soup.select_one("div.flex.flex-wrap.gap-x-4.gap-y-2.text-sm.text-neutral-300.mb-3.sm\\:mb-4")
     if not info_section:
         log("Could not find info section, setting comic status to 'Unknown'", "warn")
@@ -157,3 +139,32 @@ def comic_status(html: str) -> str:
                 return "unknown"
     except IndexError:
         return "Unknown"
+
+
+def cover_image(soup: BeautifulSoup) -> str:
+    cover_img = soup.select_one("img.w-full.h-auto.aspect-\\[2\\/3\\].object-cover")
+    if not cover_img:
+        log("Could not find cover image", "warn")
+        return ""
+    return cover_img.get("src")
+
+
+def comic_title_from_chapter(soup: BeautifulSoup) -> str:
+    sticky_navbar = soup.select_one("div#sticky-navbar")
+
+    a_tag = sticky_navbar.select_one("a")
+    if a_tag:
+        return a_tag.get_text(strip=True)
+    raise MangaTatoException("Chapter name was not found.")
+
+
+def chapter_name_from_chapter(soup: BeautifulSoup) -> str:
+    chapter_sections = soup.select_one("select#chapter-select")
+    if not chapter_sections:
+        raise MangaTatoException("Chapter section not found.")
+
+    chapter_name = chapter_sections.select_one("option[selected]")
+    if not chapter_name:
+        raise MangaTatoException("Chapter name was not found. CSS selector: option[selected]")
+
+    return chapter_name.get_text(strip=True)

@@ -13,11 +13,13 @@ class GlobalConfig:
         "Download_location": "Downloads",
         "impersonate_browser": "firefox",
         "ensure_ascii": False,
+        "metadata_style": "mihon",
+        "metadata_file_name": "details"
     }
     PROJECT_ROOT: Path = find_project_root()
 
     default_path: Path = PROJECT_ROOT / "config" / "config.json"
-    env_path = os.getenv("inkpull_config")
+    env_path = os.getenv("INKPULL_CONFIG")
     config_file_path = Path(env_path) if env_path else default_path
 
     config_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -106,45 +108,3 @@ class GlobalConfig:
             log(f"Successfully deleted config key '{key_name}'", "info")
 
 
-GConfig = GlobalConfig()
-
-
-class BaseSiteConfig:
-    SITE_NAME: str = None
-    DEFAULTS: dict = {}
-
-    def __init__(self):
-        if not self.SITE_NAME:
-            raise ValueError("SITE_NAME must be defined in subclass")
-
-        self.site_name = self.SITE_NAME.lower()
-        self.config = GConfig
-        self._settings: dict = self.config.ensure_site(self.site_name)
-        self.ensure_defaults()
-
-    def ensure_defaults(self):
-        updated = False
-        for key, value in self.DEFAULTS.items():
-            if key not in self._settings:
-                self._settings[key] = value
-                updated = True
-
-        if updated:
-            log(f"Some configs were missing ({self.site_name}), updating...", "warn")
-            self.config.save()
-            log(f"{self.site_name} site defaults added", "info")
-
-    def find(self, key, default=None):
-        return self._settings.get(key, default)
-
-    def update_key(self, key, value):
-        self._settings[key] = value
-        self.config.save()
-        log(f"{self.site_name} config updated: {key}", "info")
-
-    def delete_key(self, key_name: str):
-        result = self._settings.pop(key_name, None)
-        if result is None:
-            log("Config key not found in config", "warn")
-        else:
-            log(f"Successfully deleted config key '{key_name}'", "info")

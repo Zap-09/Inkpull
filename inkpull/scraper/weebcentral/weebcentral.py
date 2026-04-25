@@ -1,160 +1,142 @@
 import asyncio
-import json
-from pathlib import Path
-
-from utils import log, clean_folder_name, mihon_style, find_project_root
+from bs4 import BeautifulSoup
+from utils import log
 
 # base
 from ...base.downloader import ImageDownloader
 from ...base.http_client import HttpClient
-
-# global config
-from ...config import GConfig
+from ...base.base_template import BaseTemplate
 
 # WeebCentral module imports
 from .config import WeebCentralConfig
 from .exceptions import WeebCentralException
 
-from .parsing import (find_series_id,
-                      find_all_src_of_chapter,
-                      find_title_and_chapter_name,
-                      find_chapter_id,
-                      find_title,
-                      find_all_chapter_href, parse_info, get_description, find_cover_url)
+from . import parsing
 
 
-class WeebCentral:
+class WeebCentral(BaseTemplate):
     def __init__(self, headers=None, cookies=None):
         # ------configs------ #
-        self.config = WeebCentralConfig()
-        self.project_root = find_project_root()
-        self.headers = headers or self.config.find("headers", None)
-        self.cookie = cookies or self.config.find("cookies", None)
-        self.base_dl = GConfig.global_get("Download_location")
-        self.download_folder_name = self.config.find("download_folder")
+        config = WeebCentralConfig()
+        super().__init__(config)
 
-        # ------clients------ #
-        self.client = HttpClient(self.headers,
-                                 impersonate=self.config.find("impersonate_browser"),
-                                 cookie=self.cookie)
-        self.downloader = ImageDownloader(headers=self.headers)
+        self.headers = headers or self.Config.find("headers", None)
+        self.cookies = cookies or self.Config.find("cookies", None)
+
+        self.client = HttpClient(
+            headers=self.headers,
+            cookies=self.cookies,
+            impersonate=self.Config.find("impersonate", None)
+        )
+        self.downloader = ImageDownloader(
+            headers=self.headers
+        )
+
+        self.site_download_folder = self.site_folder()
 
         self.chapter_list_html: str = ""
-        self.series_html: str = ""
+        self.series_html: str | None = None
         self.chapter_list: list = []
 
-        # ------metadata------ #
-        self.title: str = ""
+        self.series_name: str | None = None
 
-    async def _download_one_chapter(self, url, is_one=False):
-        chapter_page_response = self.client.get_url(url, mode="t")
-        title, chapter_name = find_title_and_chapter_name(chapter_page_response)
-        if is_one:
-            log(f"Downloading {chapter_name} of {title}")
-        chapter_id = find_chapter_id(url)
+    async def _download_one_chapter(self, url) -> None:
+        try:
+            html = self.client.get_url(url, mode="t")
+        except Exception as e:
+            log(str(e), "error", _noformat=True)
+            log("An error occurred while downloading the chapter, skipping this")
+            return
+
+        soup = BeautifulSoup(html, "lxml")
+
+        if self.series_name is None:
+            self.series_name = parsing.title_from_chapter(soup)
+
+        chapter_id = parsing.chapter_id(url)
+        chapter_name = parsing.chapter_name(soup)
+
         chapter_api = f"https://weebcentral.com/chapters/{chapter_id}/images?is_prev=False&current_page=1&reading_style=long_strip"
-        ch_api_res = self.client.get_url(chapter_api, mode="t")
-        src_list = find_all_src_of_chapter(ch_api_res)
+        api_response = self.client.get_url(chapter_api, "t")
 
-        output_folder = (
-                Path(self.project_root) /
-                self.base_dl /
-                self.download_folder_name /
-                clean_folder_name(title) /
-                clean_folder_name(chapter_name)
-        )
+        src_list = parsing.image_src_of_chapter(api_response)
+
+        output_folder = self.sanitize_path(self.site_download_folder / self.series_name / chapter_name)
+
         await self.downloader.download_images_concurrently(
             urls=src_list,
             output_dir=output_folder
         )
 
-    def download_one_chapter(self, url: str):
+    def download_one_chapter(self, url: str) -> None:
         asyncio.run(
-            self._download_one_chapter(url, True)
+            self._download_one_chapter(url)
         )
 
-    async def _download_series(self, url: str):
+    async def _download_series(self, url: str) -> None:
         self.series_html = self.client.get_url(url, mode="t")
+        soup = BeautifulSoup(self.series_html, "lxml")
 
-        self.title = find_title(self.series_html)
-        chapter_id = find_series_id(url)
+        self.series_name = parsing.title_from_series_page(soup)
+        chapter_id = parsing.series_id(url)
         full_chapter_api = f"https://weebcentral.com/series/{chapter_id}/full-chapter-list"
         self.chapter_list_html = self.client.get_url(full_chapter_api, mode="t")
-        chapter_list = find_all_chapter_href(self.chapter_list_html)
+        chapter_list = parsing.all_chapter_href(self.chapter_list_html)
         chapter_list.reverse()
 
+        log(f"Download Started for: {self.series_name}")
 
-        log(f"Download Started for: {self.title}")
-        self._get_cover()
-        self.make_metadata_file()
+        cover_url = parsing.cover_url(soup)
+        if cover_url:
+            cover_bytes = self.client.get_url(cover_url, mode="b")
+            self.save_cover(
+                cover_url=cover_url,
+                cover_bytes=cover_bytes,
+                save_location=self.site_download_folder / self.series_name
+            )
 
+        self.metadata()
 
         for chapter in chapter_list:
-            try:
-                await self._download_one_chapter(chapter)
-            except WeebCentralException as we:
-                log(f"Failed to download {chapter} error: {str(we)}", "error")
+            await self._download_one_chapter(chapter)
 
-            except Exception as e:
-                log(f"Failed to download {chapter} error: {str(e)}", "error")
-
-    def download_series(self, url):
+    def download_series(self, url: str) -> None:
         asyncio.run(
             self._download_series(url)
         )
 
-    def make_metadata_file(self):
-        html = self.series_html
-        title = self.title
-        author = parse_info(html, "Author(s):", title)
-        tags = parse_info(html, "Tags(s):", title, _list=True)
-        status = parse_info(html, "Status:", title)
-        released_year = parse_info(html, "Released:", title, _selector="span")
-        official_tl = parse_info(html, "Official Translation:", title)
-        anime_adaptation = parse_info(html, "Anime Adaptation:", title)
-        description = get_description(html, title)
+    def metadata(self):
+        soup = BeautifulSoup(self.series_html, "lxml")
+        title = self.series_name
+        author = parsing.author(soup)
+        artist = author
+        tags = parsing.tags(soup)
+        status = parsing.status(soup)
+        released_year = parsing.released_year(soup)
+        official_tl = parsing.is_official_translation(soup)
+        anime_adaptation = parsing.anime_adaptation(soup)
+        description = parsing.description(soup)
+        comic_type = parsing.comic_type(soup)
+        is_adult_content = parsing.is_adult_content(soup)
 
-        released_year = f"Released Year: {released_year}"
-        official_tl = f"Official Translation: {official_tl}"
-        anime_adaptation = f"Anime Adaptation: {anime_adaptation}"
-
-        metadata = mihon_style(
+        metadata_dict = self.generate_metadata(
             title=title,
             author=author,
-            artist=author,
+            artist=artist,
+            type=comic_type,
             tags=tags,
             status=status,
-            description=description,
-            other_info=(released_year, anime_adaptation, official_tl)
+            released_year=released_year,
+            official_translation=official_tl,
+            anime_adaptation=anime_adaptation,
+            adult_content=is_adult_content,
+            description=description
         )
 
-        json_file_path = (Path(self.project_root) /
-                          self.base_dl /
-                          self.download_folder_name /
-                          title)
-        json_file_name = clean_folder_name(self.config.find("metadata_file_name"))
-
-        json_path = json_file_path / f"{json_file_name}.json"
-
-        with open(json_path, "w", encoding="utf-8") as f:
-            data = json.dumps(metadata,
-                              indent=4,
-                              ensure_ascii=GConfig.global_get("ensure_ascii", False))
-            f.write(data)
-
-    def _get_cover(self):
-        cover_img = find_cover_url(self.series_html)
-        if cover_img is None:
-            return
-        title = clean_folder_name(self.title)
-        save_location = Path(self.project_root) / self.base_dl / self.download_folder_name / title
-        save_location.mkdir(parents=True, exist_ok=True)
-        ext = Path(cover_img).suffix or ".jpg"
-        r = self.client.get_url(cover_img, mode="b")
-        filename = save_location / f"cover{ext}"
-        with open(filename, "wb") as f:
-            f.write(r)
-        log("Cover downloaded", "info")
+        self.create_metadata_file(
+            file_path=self.site_download_folder / self.series_name,
+            data=metadata_dict
+        )
 
 
 def Weebcentral_main(url: str, mode: str):

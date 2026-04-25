@@ -9,6 +9,7 @@
 - [Weebcentral](#weebcentral) (weebcentral.com)
 - [Atsumaru](#atsumaru) (atsu.moe)
 - [MangaTaro](#mangataro) (mangataro.org)
+- [MangaKatana](#mangakatana) (mangakatana.com)
 
 ## Flags and site details
 
@@ -43,7 +44,8 @@
         - `inkpull atsumaru -s <series url> -g <group name>`
         - `inkpull atsumaru -s <series url>`
         - `inkpull atsumaru -c <chapter url>`
-        - Note: Currently there are only 2 filters for sources in the default config. If you find a new scanlation group make a bug report with the manga and I will add the scanlation id to default config.
+        - Note: Currently there are only 2 filters for sources in the default config. If you find a new scanlation group
+          make a bug report with the manga and I will add the scanlation id to default config.
 
 - ### MangaTaro
     - Requirements
@@ -54,5 +56,15 @@
     - Examples:
         - `inkpull mangataro -s <series url>`
         - `inkpull mangataro -c <chapter url>`
+
+- ### MangaKatana
+    - Requirements
+        - None
+    - Available flags `-s`, `-c`
+        - use `-s` when you want to download the whole series
+        - use `-c` when you just want one chapter
+    - Examples:
+        - `inkpull mangakatana -s <series url>`
+        - `inkpull mangakatana -c <chapter url>`
 
 [Back to main page](https://github.com/Zap-09/Inkpull)

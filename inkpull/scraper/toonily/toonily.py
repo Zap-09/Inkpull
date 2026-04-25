@@ -1,184 +1,160 @@
 import asyncio
-from pathlib import Path
-import json
-from utils import clean_folder_name, log, remove_dupes_in_list, find_project_root, mihon_style
+from bs4 import BeautifulSoup
+from utils import log
 
 # base
+from ...base.base_template import BaseTemplate
 from ...base.downloader import ImageDownloader
 from ...base.http_client import HttpClient
-
-# global config
-from ...config import GConfig
 
 # toonily module imports
 from .exceptions import ToonilyException
 from .config import ToonilyConfig
-from .parsing import (find_title_in_series,
-                      find_all_chapters_and_names,
-                      find_chapter_images_of_chapters,
-                      find_chapter_name_in_chapter,
-                      find_title_in_chapter,
-                      get_series_tags,
-                      get_series_genre,
-                      get_metadata,
-                      gets_views_and_ratings,
-                      get_summary,
-                      comic_status,
-                      get_cover_image_url)
+from . import parsing
 
 
-class Toonily:
+class Toonily(BaseTemplate):
     def __init__(self, headers=None, cookies=None):
-        # ------configs------ #
-        self.project_root = find_project_root()
-        self.config = ToonilyConfig()
+        config = ToonilyConfig()
+        super().__init__(config)
 
-        self.headers = headers or self.config.find("headers", None)
-        self.cookie = cookies or self.config.find("cookies", None)
-        self.base_dl = GConfig.global_get("Download_location")
-        self.download_folder_name = self.config.find("download_folder")
+        self.headers = headers or self.Config.find("headers", None)
+        self.cookies = cookies or self.Config.find("cookies", None)
 
-        # ------clients------ #
         self.client = HttpClient(self.headers,
-                                 impersonate=self.config.find("impersonate_browser"),
-                                 cookie=self.cookie)
+                                 impersonate=self.Config.find("impersonate_browser"),
+                                 cookies=self.cookies)
         self.downloader = ImageDownloader(headers=self.headers)
-        # ------metadata------ #
+
+        self.site_download_folder = self.site_folder()
+        self.was_title_shown: bool = False
+
         self.series_html: str = ""
         self.series_title: str = ""
 
-    async def _download_series_helper(self, url: str):
-        """ Helper function to download the series """
-        html = self.client.get_url(url, mode="t")
-        self.series_html = html
-        title = find_title_in_series(html, url)
-        self.series_title = title
-        title = clean_folder_name(title)
-
-        log(f"Download Started for: {title}", "info")
-        chapters: list = find_all_chapters_and_names(html, url)
-        self.make_metadata_file()
-        self._get_cover()
-
-        for c_name, c_url in chapters:
-            try:
-                chapter_html = self.client.get_url(c_url, mode="t")
-                image_src_list = find_chapter_images_of_chapters(chapter_html, c_url)
-
-                c_name = clean_folder_name(c_name)
-
-                output_dir = (Path(self.project_root) /
-                              self.base_dl /
-                              self.download_folder_name /
-                              title /
-                              c_name)
-
-                await self.downloader.download_images_concurrently(
-                    urls=image_src_list,
-                    output_dir=output_dir,
-                )
-
-            except ToonilyException as te:
-                log(f"Failed to download {c_name} error: {str(te)}", "error")
-
-            except Exception as e:
-                log(f"Failed to download {c_name} error: {str(e)}", "error")
-        log("Download Finished", "info")
-
-    def download_series(self, url: str):
-        """ Downloads the entire series """
-        asyncio.run(self._download_series_helper(url))
-
-    def download_one_chapter(self, url: str):
-        """ Downloads a single chapter """
-        html = self.client.get_url(url, mode="t")
-        chapter_name = clean_folder_name(find_chapter_name_in_chapter(html, url))
-
-        title = find_title_in_chapter(html, url)
-        log(f"Download Started for: {title}", "info")
-
-        chapter_images = find_chapter_images_of_chapters(html, url)
-        output_dir = (Path(self.project_root) / self.base_dl /
-                      self.download_folder_name /
-                      clean_folder_name(title) /
-                      chapter_name)
-
-        asyncio.run(
-            self.downloader.download_images_concurrently(
-                urls=chapter_images,
-                output_dir=str(output_dir))
-        )
-        log("Download Finished", "info")
-
-    def _get_cover(self):
-        cover_img = get_cover_image_url(self.series_html, self.series_title)
-        if cover_img is None:
+    async def _download_one_chapter(self, url: str) -> None:
+        try:
+            html = self.client.get_url(url, "t")
+        except Exception as e:
+            log(str(e), "error", _noformat=True)
+            log("An error occurred, skipping this entry", level="warn")
             return
-        title = clean_folder_name(self.series_title)
-        save_location = Path(self.project_root) / self.base_dl / self.download_folder_name / title
-        save_location.mkdir(parents=True, exist_ok=True)
 
-        ext = Path(cover_img).suffix or ".jpg"
-        r = self.client.get_url(cover_img, mode="b")
-        filename = save_location / f"cover{ext}"
-        with open(filename, "wb") as img:
-            img.write(r)
-        log("Cover downloaded", "info")
+        soup = BeautifulSoup(html, "lxml")
+        comic_name = parsing.comic_name(soup)
+        chapter_name = parsing.chapter_name(soup)
+        chapter_images = parsing.chapter_images(soup)
+        output_dir = self.sanitize_path(self.site_download_folder / comic_name / chapter_name)
 
-    def make_metadata_file(self):
-        html = self.series_html
-        title = self.series_title
-        tags: list = get_series_tags(html, title)
-        genres: list = get_series_genre(html, title)
-        other_mata_data: dict = get_metadata(html, title)
-        tags_genre = remove_dupes_in_list(tags, genres)
-        status = comic_status(html, title)
-        view_and_rating = gets_views_and_ratings(html, title)
-        views = view_and_rating.get("views", None)
-        rating = float(view_and_rating.get("rating", None))
-        summary = get_summary(html, title)
-        alt_title = other_mata_data.get("alt_titles", None)
+        if not self.was_title_shown:
+            log(f"Downloading chapter '{chapter_name}' of '{comic_name}'")
 
-        if alt_title:
-            alt_title = f"Alternative Titles: {alt_title}\n"
-        else:
-            alt_title = ""
+            self.was_title_shown = True
 
-        metadata = mihon_style(
-            title=title,
-            author=other_mata_data.get("writer", None),
-            artist=other_mata_data.get("artist", None),
-            tags=tags_genre,
-            status=status,
-            description=summary,
-            other_info=(
-                alt_title,
-                f"Rating: {str(rating)}\nViews: {views}",
-            )
+        await self.downloader.download_images_concurrently(
+            urls=chapter_images,
+            output_dir=output_dir,
         )
-        json_location = Path(self.project_root) / self.base_dl / self.download_folder_name / title
-        json_location.mkdir(parents=True, exist_ok=True)
 
-        json_file_name = clean_folder_name(self.config.find("metadata_file_name"))
+    def download_one_chapter(self, url: str) -> None:
+        asyncio.run(
+            self._download_one_chapter(url=url)
+        )
 
-        json_path = json_location / f"{json_file_name}.json"
+    async def _download_series(self, url: str) -> None:
+        self.series_html = self.client.get_url(url, "t")
 
-        with open(json_path, "w", encoding="utf-8") as f:
-            data = json.dumps(metadata,
-                              indent=4,
-                              ensure_ascii=GConfig.global_get("ensure_ascii", False))
-            f.write(data)
+        soup = BeautifulSoup(self.series_html, "lxml")
+
+        series_title = parsing.series_title(soup)
+        self.series_title = series_title
+        chapter_list = parsing.chapter_list(soup)
+
+        log(f"Downloading series: '{series_title}'")
+        self.was_title_shown = True
+
+        cover_url = parsing.cover_src(soup)
+
+        if cover_url:
+            cover_image = self.client.get_url(cover_url, "b")
+            cover_path = self.site_download_folder / series_title
+
+            self.save_cover(
+                cover_url=cover_url,
+                cover_bytes=cover_image,
+                save_location=self.sanitize_path(cover_path)
+            )
+        self.metadata()
+
+        for chapter in chapter_list:
+            await self._download_one_chapter(chapter)
+
+    def download_series(self, url: str) -> None:
+        asyncio.run(
+            self._download_series(url=url)
+        )
+
+    def metadata(self):
+        soup = BeautifulSoup(self.series_html, "lxml")
+        title = parsing.series_title(soup)
+        author = parsing.authors(soup)
+        artist = parsing.artist(soup)
+        description = parsing.description(soup)
+        tags = parsing.tags(soup)
+        genres = parsing.genres(soup)
+        status = parsing.comic_status(soup)
+        rating = parsing.rating(soup)
+        views = parsing.view_count(soup)
+        alt_titles = parsing.alternative_titles(soup)
+
+        tags.extend(genres)
+        tags = self.remove_dupes_in_list(tags)
+
+        metadata_dict = self.generate_metadata(title=title,
+                                               author=author,
+                                               artist=artist,
+                                               description=description,
+                                               tags=tags,
+                                               status=status,
+                                               rating=rating,
+                                               views=views,
+                                               alternative_title=alt_titles
+                                               )
+        self.create_metadata_file(
+            file_path=self.site_download_folder / self.sanitize_path(self.series_title),
+            data=metadata_dict
+        )
+
+    @staticmethod
+    def validate_url_mode(url: str, mode: str) -> None:
+        url = url.rstrip("/")
+        parts = url.split("/")
+
+        if not parts:
+            return
+
+        last_part = parts[-1].lower()
+        is_chapter_url = "chapter" in last_part
+
+        if mode == "series" and is_chapter_url:
+            log("Looks like you entered a chapter URL while in series mode.", "warn")
+            log("You might not get the expected results.", "warn")
+
+        elif mode == "chapter" and not is_chapter_url:
+            log("Looks like you entered a series URL while in chapter mode.", "warn")
+            log("You might not get the expected results.", "warn")
 
 
 def Toonily_main(url: str, mode: str):
     if not url:
-        raise ToonilyException.UrlNotProvided
+        raise ToonilyException("URL cannot be empty.")
 
     toonily = Toonily()
+    toonily.validate_url_mode(url=url, mode=mode)
     match mode:
         case "series":
             toonily.download_series(url)
         case "chapter":
             toonily.download_one_chapter(url)
         case _:
-            raise ToonilyException.InvalidArgs
+            raise ToonilyException(f"Invalid mode: {mode}")

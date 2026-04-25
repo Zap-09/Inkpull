@@ -1,8 +1,5 @@
-from .config import GConfig, BaseSiteConfig
-
-
+from .base_site_config import BaseSiteConfig
 
 __all__ = [
-    "GConfig",
-    "BaseSiteConfig"
+    "BaseSiteConfig",
 ]
