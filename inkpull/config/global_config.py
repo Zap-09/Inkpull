@@ -1,7 +1,6 @@
 import json
-import os
 from pathlib import Path
-from utils import log, find_project_root, user_confirmation, GenericException
+from utils import log, find_project_root, user_confirmation, GenericException, env
 
 
 class GlobalConfig:
@@ -19,7 +18,7 @@ class GlobalConfig:
     PROJECT_ROOT: Path = find_project_root()
 
     default_path: Path = PROJECT_ROOT / "config" / "config.json"
-    env_path = os.getenv("INKPULL_CONFIG")
+    env_path = env.CONFIG_PATH
     config_file_path = Path(env_path) if env_path else default_path
 
     config_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -106,5 +105,3 @@ class GlobalConfig:
             log("Config key not found in config", "warn")
         else:
             log(f"Successfully deleted config key '{key_name}'", "info")
-
-

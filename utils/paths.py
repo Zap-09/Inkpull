@@ -1,19 +1,9 @@
-import re
 import sys
-import os
 import subprocess
 from pathlib import Path
 
 from .terminal import log
-
-
-def clean_folder_name(name: str) -> str:
-    """ Removes invalid Characters in folder/file name """
-
-    invalid_chars = r"[\/:*?\"<>|]"
-    name = re.sub(invalid_chars, " ", name)
-    name = re.sub(r"\s+", " ", name)
-    return name.strip()
+from .environment_variables import env
 
 
 def find_project_root() -> Path:
@@ -28,35 +18,8 @@ def find_project_root() -> Path:
         return Path(sys.argv[0]).resolve().parent
 
 
-def remove_dupes_in_list(*all_lists: list):
-    """ Removes duplicate items in lists """
-    big_list = []
-    seen = set()
-    for lst in all_lists:
-        if lst is None:
-            continue
-        for i in lst:
-            if i not in seen:
-                big_list.append(i)
-                seen.add(i)
-    return big_list
-
-
-def flatten(iterable):
-    """ Flattens lists into lists """
-    result = []
-
-    for item in iterable:
-        if isinstance(item, (list, tuple)):
-            result.extend(flatten(item))
-        else:
-            result.append(str(item))
-
-    return result
-
-
 def open_config_file():
-    env_path = os.getenv("comic_dl_config")
+    env_path = env.CONFIG_PATH
 
     if env_path:
         config_file_path = Path(env_path)
