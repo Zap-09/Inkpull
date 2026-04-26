@@ -1,10 +1,10 @@
 import asyncio
 import random
 import re
-import sys
 from pathlib import Path
 from typing import Iterable
 
+import utils
 
 class HelperMixin:
 
@@ -67,12 +67,9 @@ class HelperMixin:
 
     @staticmethod
     def find_project_root() -> Path:
-        """
-        Returns the directory where inkpull.exe (or main.py) lives.
-        This will serve as the "root" for downloads and config.
-        """
-        if getattr(sys, "_MEIPASS", None):
-            exe_path = Path(sys.executable).resolve()
-            return exe_path.parent
-        else:
-            return Path(sys.argv[0]).resolve().parent
+        return utils.find_project_root()
+
+    @staticmethod
+    def open_config_file():
+        utils.open_config_file()
+

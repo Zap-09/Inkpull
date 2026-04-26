@@ -94,11 +94,14 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            echo "RELEASE_BODY=${{ github.event.head_commit.message }}" >> $GITHUB_ENV
+            {
+              echo "RELEASE_BODY<<EOF"
+              echo "${{ github.event.head_commit.message }}"
+              echo "EOF"
+            } >> $GITHUB_ENV
           else
             echo "RELEASE_BODY=Manual build (no commit message available)" >> $GITHUB_ENV
           fi
-
       - name: Create Release and upload artifact
         uses: ncipollo/release-action@v1
         with:

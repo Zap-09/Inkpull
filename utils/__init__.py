@@ -4,14 +4,8 @@ colorama.init()
 
 from .terminal import log, user_confirmation
 from .exceptions import check_status_code, InkpullExceptions, GenericException
-from .parsing_style import mihon_style
-from .helper_funcs import (clean_folder_name,
-                           find_project_root,
-                           remove_dupes_in_list,
-                           flatten,
-                           open_config_file
-                           )
-
+from .paths import open_config_file, find_project_root
+from .environment_variables import env
 __all__ = [
     "log",
     "user_confirmation",
@@ -19,9 +13,6 @@ __all__ = [
     "check_status_code",
     "InkpullExceptions",
     "GenericException",
-    "clean_folder_name",
-    "remove_dupes_in_list",
-    "flatten",
-    "mihon_style",
-    "open_config_file"
+    "open_config_file",
+    "env"
 ]
