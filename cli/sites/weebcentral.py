@@ -1,15 +1,13 @@
 import click
-from click_option_group import optgroup, MutuallyExclusiveOptionGroup, RequiredAllOptionGroup
+from click_option_group import optgroup, MutuallyExclusiveOptionGroup
 
 from inkpull.scraper import Weebcentral_main
-from inkpull.scraper.weebcentral.config import WeebCentralConfig
 
-from utils import log
 
 
 def weebcentral_command():
-    @optgroup.group("Download", cls=MutuallyExclusiveOptionGroup)
     @click.group(invoke_without_command=True)
+    @optgroup.group("Download", cls=MutuallyExclusiveOptionGroup)
     @optgroup.option("-s", "--series", help="URL for series")
     @optgroup.option("-c", "--chapter", help="URL for a chapter")
     @click.pass_context
