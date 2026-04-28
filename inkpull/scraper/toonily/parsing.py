@@ -42,7 +42,7 @@ def chapter_images(html: BeautifulSoup) -> list[str]:
 
     return images_src
 
-
+#serirs parsing
 def chapter_list(html: BeautifulSoup) -> list[str]:
     manga_content = html.select_one("div#manga-content-tabs")
     if manga_content is None:
@@ -61,7 +61,7 @@ def chapter_list(html: BeautifulSoup) -> list[str]:
 
 def series_title(html: BeautifulSoup) -> str:
     h1 = html.select_one("h1")
-    name = h1.find(text=True, recursive=False).strip()
+    name = h1.find(string=True, recursive=False).strip()
     if name:
         return name
     else:

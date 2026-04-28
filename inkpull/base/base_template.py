@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from utils import log
@@ -45,26 +46,36 @@ class BaseTemplate(StyleMixin):
 
     def site_folder(self) -> Path:
         """ Returns sanitized site folder path """
-        return (self.find_project_root() /
-                self.clean_folder_name(self.GConfig.global_get("Download_location")) /
-                self.clean_folder_name(self.Config.find("download_folder")))
+        global_path_str = self.GConfig.global_get("Download_location")
+        site_path_str = self.Config.find("download_folder")
 
-    def sanitize_path(self, path: Path | str, project_root: Path | str | None = None) -> Path:
-        """ Sanitizes an absolute path. If input is not an absolute path it just sanitizes the input"""
+        global_path = Path(global_path_str)
+        site_path = Path(site_path_str)
 
-        if project_root is None:
-            project_root = self.project_root
+        if not site_path.is_absolute() and ("/" in site_path_str or "\\" in site_path_str):
+            folder_parts = re.split(r"[\\/]", site_path_str)
+            site_path = Path(*folder_parts)
+
+        if site_path.is_absolute():
+            return self.sanitize_path(site_path)
+
+        if global_path.is_absolute():
+            final_path = global_path / site_path
         else:
-            project_root = Path(project_root)
+            final_path = self.project_root / global_path / site_path
 
+        return self.sanitize_path(final_path)
+
+    def sanitize_path(self, path: Path | str) -> Path:
         path = Path(path)
-        if not path.is_absolute():
-            return Path(self.clean_folder_name(str(path)))
+        anchor = path.anchor
+        parts = path.parts
 
-        relative_path = path.relative_to(project_root)
+        sanitized_parts = [self.clean_folder_name(p) for p in parts if p not in (".", "..")]
 
-        sanitized_parts = [self.clean_folder_name(p) for p in relative_path.parts]
-        return project_root.joinpath(*sanitized_parts)
+        if anchor:
+            return Path(anchor, *sanitized_parts)
+        return Path(*sanitized_parts)
 
     def save_cover(self, cover_url: str,
                    save_location: Path | str,

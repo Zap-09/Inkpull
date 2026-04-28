@@ -6,6 +6,7 @@ from typing import Iterable
 
 import utils
 
+
 class HelperMixin:
 
     @staticmethod
@@ -15,14 +16,26 @@ class HelperMixin:
 
     @staticmethod
     def clean_folder_name(name: str) -> str:
-        """ Removes invalid Characters in folder/file name """
+        """Sanitize a single file/folder name (not a full path)."""
 
-        invalid_chars = r"[\/:*?\"<>|]"
-        name = re.sub(invalid_chars, " ", name)
-        name = re.sub(r"\s+", " ", name)
-        name = name.strip()
-        if name.endswith("."):
-            name = name.rstrip(".") + "…"
+        reserved = {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4",
+            "COM5", "COM6", "COM7", "COM8",
+            "COM9", "LPT1", "LPT2", "LPT3",
+            "LPT4", "LPT5", "LPT6", "LPT7",
+            "LPT8", "LPT9",
+        }
+
+        name = re.sub(r'[\\/:*?"<>|]', " ", name)
+        name = re.sub(r"\s+", " ", name).strip()
+        name = name.rstrip(" .")
+
+        if not name:
+            return "_"
+
+        if name.upper() in reserved:
+            name = f"_{name}"
 
         return name
 
@@ -72,4 +85,3 @@ class HelperMixin:
     @staticmethod
     def open_config_file():
         utils.open_config_file()
-
