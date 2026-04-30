@@ -5,7 +5,7 @@ hiddenimports += collect_submodules("inkpull.scraper")
 
 
 a = Analysis(
-    ['..\\..\\main.py'],
+    ['..\\main.py'],
     pathex=[],
     binaries=[],
     datas=[],

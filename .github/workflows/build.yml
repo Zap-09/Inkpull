@@ -43,23 +43,15 @@ jobs:
               f.write(f"VERSION={version}\n")
         shell: python
 
-      - name: Prepare build folders
-        run: mkdir PYINSTALLER
-
       - name: Build EXE
         shell: cmd
-        run: |
-          pyinstaller ^
-            -y ^
-            --workpath PYINSTALLER\build ^
-            --distpath PYINSTALLER\dist ^
-            ".github\workflows\Inkpull.spec"
+        run: python make_exe.py
 
       - name: Package EXE with 7-Zip
         shell: cmd
         run: |
-          cd PYINSTALLER\dist
-          "C:\Program Files\7-Zip\7z.exe" a -t7z ..\..\Inkpull-${{ env.VERSION }}.7z * ..\..\LICENSE
+          cd build_tools\PYINSTALLER\dist
+          "C:\Program Files\7-Zip\7z.exe" a -t7z ..\..\..\Inkpull-${{ env.VERSION }}.7z * ..\..\..\LICENSE
 
       - name: Delete existing release and tag if version exists
         shell: bash
