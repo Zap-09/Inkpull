@@ -73,7 +73,6 @@ class Mangakatana(BaseTemplate):
         chapter_urls = parsing.get_chapter_urls(self.series_html, url)
         for href in chapter_urls:
             await self._download_one_chapter(href)
-            await self.delay(minimum=0.7, maximum=1.5)
 
     def save_metadata(self):
         title = self.series_title

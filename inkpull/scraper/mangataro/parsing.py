@@ -1,5 +1,3 @@
-import re
-
 from utils import log
 from bs4 import BeautifulSoup
 
@@ -13,23 +11,25 @@ def chapter_id(url: str) -> str:
     return last_part.split("-")[-1]
 
 
-def extract_title_and_chapter(soup: BeautifulSoup) -> tuple[str, str]:
-    reader_tag = soup.select_one("#reader-media")
-    if not reader_tag:
-        raise MangaTatoException("Comic title and chapter name not found. CSS selector: #reader-media")
+def comic_title_from_chapter(soup: BeautifulSoup) -> str:
+    sticky_navbar = soup.select_one("div#sticky-navbar")
 
-    chapter_title = reader_tag.get("data-chapter-title")
+    a_tag = sticky_navbar.select_one("a")
+    if a_tag:
+        return a_tag.get_text(strip=True)
+    raise MangaTatoException("Chapter name was not found.")
 
-    if not chapter_title:
-        raise MangaTatoException("Comic chapter name not found")
 
-    match = re.search(r'Chapter \d+(?:\.\d+)?(?:\s*-\s*.+)?$', chapter_title)
-    if match:
-        chapter_label = match.group(0)
-        title = chapter_title[:match.start()].strip()
-        return title, chapter_label
-    else:
-        raise MangaTatoException("Comic chapter name not found. Regex found no match.")
+def chapter_name_from_chapter(soup: BeautifulSoup) -> str:
+    chapter_sections = soup.select_one("select#chapter-select")
+    if not chapter_sections:
+        raise MangaTatoException("Chapter section not found.")
+
+    chapter_name = chapter_sections.select_one("option[selected]")
+    if not chapter_name:
+        raise MangaTatoException("Chapter name was not found. CSS selector: option[selected]")
+
+    return chapter_name.get_text(strip=True)
 
 
 def image_urls(json_data: dict) -> list:
@@ -147,24 +147,3 @@ def cover_image(soup: BeautifulSoup) -> str:
         log("Could not find cover image", "warn")
         return ""
     return cover_img.get("src")
-
-
-def comic_title_from_chapter(soup: BeautifulSoup) -> str:
-    sticky_navbar = soup.select_one("div#sticky-navbar")
-
-    a_tag = sticky_navbar.select_one("a")
-    if a_tag:
-        return a_tag.get_text(strip=True)
-    raise MangaTatoException("Chapter name was not found.")
-
-
-def chapter_name_from_chapter(soup: BeautifulSoup) -> str:
-    chapter_sections = soup.select_one("select#chapter-select")
-    if not chapter_sections:
-        raise MangaTatoException("Chapter section not found.")
-
-    chapter_name = chapter_sections.select_one("option[selected]")
-    if not chapter_name:
-        raise MangaTatoException("Chapter name was not found. CSS selector: option[selected]")
-
-    return chapter_name.get_text(strip=True)

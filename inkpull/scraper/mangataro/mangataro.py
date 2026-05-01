@@ -130,7 +130,6 @@ class MangaTaro(BaseTemplate):
             await self._download_one_chapter(
                 url=chapter
             )
-            await self.delay(minimum=0.4, maximum=1.3)
 
     def download_series(self, url: str) -> None:
         asyncio.run(
