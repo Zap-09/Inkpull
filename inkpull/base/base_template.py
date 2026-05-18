@@ -68,13 +68,18 @@ class BaseTemplate(StyleMixin):
 
     def sanitize_path(self, path: Path | str) -> Path:
         path = Path(path)
-        anchor = path.anchor
-        parts = path.parts
 
-        sanitized_parts = [self.clean_folder_name(p) for p in parts if p not in (".", "..")]
+        anchor = path.anchor
+
+        sanitized_parts = [
+            self.clean_folder_name(p)
+            for p in path.parts
+            if p not in (".", "..", anchor)
+        ]
 
         if anchor:
             return Path(anchor, *sanitized_parts)
+
         return Path(*sanitized_parts)
 
     def save_cover(self, cover_url: str,
