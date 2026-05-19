@@ -82,18 +82,6 @@ jobs:
         run: |
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-      - name: Set release body
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            {
-              echo "RELEASE_BODY<<EOF"
-              echo "${{ github.event.head_commit.message }}"
-              echo "EOF"
-            } >> $GITHUB_ENV
-          else
-            echo "RELEASE_BODY=Manual build (no commit message available)" >> $GITHUB_ENV
-          fi
       - name: Create Release and upload artifact
         uses: ncipollo/release-action@v1
         with:
@@ -101,7 +89,7 @@ jobs:
           tag: inkpull-${{ env.VERSION }}
           name: Inkpull v${{ env.VERSION }}
           body: |
-            ${{ env.RELEASE_BODY }}
+            Version: v${{ env.VERSION }}
 
             Build date: ${{ env.BUILD_DATE }}
           draft: false
