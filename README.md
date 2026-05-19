@@ -3,6 +3,7 @@ A Comic downloader cli tool made with python
 
 Currently supported [sites](docs/Site_Specific.md)
 
+View the changelog [here](CHANGELOG.md)
 ## How to install 
 
 Download the latest version of Inkpull from the [release](https://github.com/Zap-09/Inkpull/releases) page
