@@ -1,6 +1,14 @@
 # Changelog
 
 ## v2.0.3
+### Added 
+ - Atsumaru now has two flags in series mode `-sm` and `-a`. Refer to the docs to see what they do in details.
+
+### Removed
+ - Atsumaru's `-g` because of the new system it became obsolete. 
+
+
+## v2.0.3
 ### Fixes
  - Fixed a bug where it would download entries in the wrong folder
 

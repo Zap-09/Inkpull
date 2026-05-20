@@ -37,7 +37,7 @@ Most of the sites follow this type of structure. If there are any caveats or spe
 
 ## Configuration
 
-By default, a config file will be created the first time the program is run at `config/config.json` next to the exe file. You can change its location by adding this key `inkpull_config` to your System Environment Variables with the value being where you want the file be.
+By default, a config file will be created the first time the program is run at `config/config.json` next to the exe file. You can change its location by adding this key `INKPULL_CONFIG` to your System Environment Variables with the value being where you want the file be.
 
 If you want to edit the file you can run `inkpull --config` and it will open the file in your default text editor.
 

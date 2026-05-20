@@ -36,16 +36,22 @@
 - ### Atsumaru
     - Requirements
         - None
-    - Available flags `-s`, `-c`, `-g`
+    - Available flags `-s`, `-c`, `-sm`, `-a`
         - use `-s` when you want to download the whole series
         - use `-c` when you want just one chapter
-        - use `-g` pick the scanlation group when downloading a series, missing means all sources.
+        - `-sm` enables smart chapter selection. It will automatically select chapter from all sources with no duplicate
+          chapter.
+        - `-a` downloads all available chapters.
+        <hr>
+
+        - Note: `-a` takes priority over `-sm` if both are persent.
+        - Note 2: `-a` and `-sm` only work with `-s`
     - Examples:
-        - `inkpull atsumaru -s <series url> -g <group name>`
         - `inkpull atsumaru -s <series url>`
         - `inkpull atsumaru -c <chapter url>`
-        - Note: Currently there are only 2 filters for sources in the default config. If you find a new scanlation group
-          make a bug report with the manga and I will add the scanlation id to default config.
+        - `inkpull atsumaru -s <series_url> -sm`
+        - `inkpull atsumaru -s <series_url> -a`
+
 
 - ### MangaTaro
     - Requirements

@@ -15,9 +15,4 @@ class AtsumaruConfig(BaseSiteConfig):
         "cookies": {},
         "metadata_file_name": "default",
         "metadata_style": "default",
-        "scan_group":{
-            "alpha": "cmgzlbh3i9vp3m19184ncw4ul",
-            "asura": "cmkzi8aln001a20nvithv7arz",
-        },
-        "scan_group_warn": True,
     }

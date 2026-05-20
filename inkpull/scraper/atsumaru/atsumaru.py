@@ -1,5 +1,5 @@
 import asyncio
-from utils import log, user_confirmation, GenericException
+from utils import log
 from ...base.base_template import BaseTemplate
 
 # base
@@ -9,6 +9,8 @@ from ...base.http_client import HttpClient
 # atsumaru module imports
 from .config import AtsumaruConfig
 from . import parsing
+
+from .schemas import AtsumaruChapter
 
 
 class Atsumaru(BaseTemplate):
@@ -72,44 +74,46 @@ class Atsumaru(BaseTemplate):
             self._download_one_chapter(url)
         )
 
-    def _resolve_scanlation(self, scan_group: str | None) -> str | None:
-        scan_warn = self.Config.find("scan_group_warn", True)
-        scan_groups: dict = self.Config.find("scan_group", {})
-
-        if scan_group:
-            picked = scan_groups.get(scan_group)
-
-            if not picked:
-                log(f"{scan_group} is not in the config", "warn")
-                if not user_confirmation("Download from all scan groups?"):
-                    raise GenericException.UserRejection
-                return None
-
-            return picked
-
-        if scan_warn:
-            if not user_confirmation(
-                    "No scan group selected. Download from all available scan groups?"
-            ):
-                raise GenericException.UserRejection
-            log("Tip: you can disable this prompt in the config")
-
-        return None
-
-    async def _download_series(self, url: str, scan_group: str | None = None) -> None:
-        manga_id = parsing.get_manga_id(url)
-
-        chapter_list_api = f"https://atsu.moe/api/manga/allChapters?mangaId={manga_id}"
-        api_res = self.client.get_url(chapter_list_api, "j")
-
-        scanlation_id = self._resolve_scanlation(scan_group)
-
+    async def _series_single_chapter(self, manga_id: str, title: str, chapter: AtsumaruChapter):
+        api = f"https://atsu.moe/api/read/chapter?mangaId={manga_id}&chapterId={chapter.id}"
+        cha_res = self.client.get_url(api, "j")
+        image_urls = parsing.make_image_url(cha_res)
         self._get_info(manga_id)
-        title = parsing.get_title(self.series_info, _only_title=True).get("title")
+
+        chapter_name = f"{chapter.title} - ({chapter.scanlationGroupName})"
+
+        output_dir = self.sanitize_path(
+            self.site_download_folder / title / chapter_name,
+        )
+        await self.downloader.download_images_concurrently(
+            image_urls, output_dir=output_dir
+        )
+
+    async def _download_series(self, url: str,
+                               *,
+                               select_all: bool = False,
+                               smart_select: bool = False):
+        manga_id = parsing.get_manga_id(url)
+        chapter_list_api = f"https://atsu.moe/api/manga/allChapters?mangaId={manga_id}"
+        self._get_info(manga_id)
+
+        chapter_api_res = self.client.get_url(chapter_list_api, "j")
+
+        scanlators_and_chapters = parsing.extract_scanlators(
+            all_chapter_json=chapter_api_res,
+            page_json=self.series_info
+        )
+        selected_chapters = parsing.resolve_selection(
+            scanlators=scanlators_and_chapters, select_all=select_all, smart_select=smart_select
+        )
+
+        chapters_with_urls = parsing.construct_chapter_urls(
+            manga_id=manga_id,
+            data=selected_chapters
+        )
 
         self._save_metadata()
-
-        log(f"Download started for: {title}", "info")
+        title = parsing.get_title(self.series_info, _only_title=True).get("title")
 
         cover_url = parsing.get_poster_url(self.series_info)
         if not cover_url:
@@ -123,13 +127,21 @@ class Atsumaru(BaseTemplate):
             cover_bytes=cover_res
         )
 
-        chapter_list = parsing.make_chapter_urls(manga_id, api_res, scanlation_id)
-        chapter_list.reverse()
-        for chapter in chapter_list:
-            try:
-                await self._download_one_chapter(chapter)
-            except Exception as e:
-                log(f"Error downloading chapter: {chapter}, Error:{e}", "error")
+        try:
+            for chapter in chapters_with_urls:
+                await self._series_single_chapter(
+                    manga_id=manga_id, chapter=chapter, title=title
+                )
+        except Exception as e:
+            log(str(e), "error")
+
+    def download_series(self, url: str,
+                        *,
+                        select_all: bool = False,
+                        smart_select: bool = False):
+        asyncio.run(self._download_series(
+            url=url, smart_select=smart_select, select_all=select_all
+        ))
 
     def _save_metadata(self):
         all_titles = parsing.get_title(self.series_info, _only_title=False)
@@ -150,7 +162,7 @@ class Atsumaru(BaseTemplate):
             tags=tags,
             description=synopsis,
             status=status,
-            alternative_titles = other_titles,
+            alternative_titles=other_titles,
         )
 
         metadata_file_path = self.site_download_folder / title
@@ -159,13 +171,8 @@ class Atsumaru(BaseTemplate):
             data=metadata
         )
 
-    def download_series(self, url: str, scan_group: str | None):
-        asyncio.run(
-            self._download_series(url, scan_group)
-        )
 
-
-def Atsumaru_main(url: str, mode: str, scan_group: str | None):
+def Atsumaru_main(url: str, mode: str, select_all: bool = False, smart_select: bool = False):
     if not url:
         raise Exception("url is required")
     atsumaru = Atsumaru()
@@ -173,6 +180,6 @@ def Atsumaru_main(url: str, mode: str, scan_group: str | None):
         case "chapter":
             atsumaru.download_one_chapter(url)
         case "series":
-            atsumaru.download_series(url, scan_group)
+            atsumaru.download_series(url, select_all=select_all, smart_select=smart_select)
         case _:
             log("Invalid mode", "error")

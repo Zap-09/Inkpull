@@ -35,3 +35,6 @@ class AtsumaruException(Exception):
             else:
                 super().__init__(log("No chapters to download",
                                      "error",_return=True))
+
+    class HelpFlag(Base):
+        pass
