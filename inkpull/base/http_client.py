@@ -2,7 +2,7 @@ import time
 import random
 
 from curl_cffi import requests
-from curl_cffi.requests.exceptions import Timeout, HTTPError, ConnectionError
+from curl_cffi.requests.exceptions import Timeout, HTTPError, ConnectionError as CffiConnectionError
 
 from utils import check_status_code, log
 
@@ -22,7 +22,9 @@ class HttpClient:
 
     def _base(self, url: str,
               mode: Literal["t", "j", "b"] = "t",
-              method: Literal["get", "post"] = "get") -> str | dict | bytes:
+              method: Literal["get", "post"] = "get",
+              json_payload: dict | None = None,
+              params: dict | None = None) -> str | dict | bytes:
         last_error = None
 
         for i in range(self.retries):
@@ -31,18 +33,14 @@ class HttpClient:
                     case "get":
                         r = requests.get(
                             url,
-                            headers=self.header,
-                            cookies=self.cookie,
-                            impersonate=self.impersonate,
-                            timeout=self.timeout
+                            params=params
                         )
                     case "post":
                         r = requests.post(
                             url,
-                            headers=self.header,
-                            cookies=self.cookie,
-                            impersonate=self.impersonate,
-                            timeout=self.timeout
+                            timeout=self.timeout,
+                            json=json_payload,
+                            params=params
                         )
                     case _:
                         raise ValueError(f"Invalid method: {method}")
@@ -57,7 +55,7 @@ class HttpClient:
                     case "b":
                         return r.content
 
-            except (ConnectionError, Timeout, HTTPError,) as e:
+            except (CffiConnectionError, Timeout, HTTPError,) as e:
                 last_error = e
                 log(f"Retry {i + 1}/{self.retries} failed: {url} -> {e}", level="warn")
                 time.sleep((2 ** i) + random.uniform(0, 1))
@@ -71,9 +69,11 @@ class HttpClient:
             method="get"
         )
 
-    def post_url(self, url: str, mode: Literal["t", "j", "b"] = "t") -> str | dict | bytes:
+    def post_url(self, url: str, mode: Literal["t", "j", "b"] = "t",
+                 json_payload: dict | None = None) -> str | dict | bytes:
         return self._base(
             url=url,
             mode=mode,
-            method="post"
+            method="post",
+            json_payload=json_payload,
         )

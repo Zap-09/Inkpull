@@ -28,7 +28,11 @@ class ImageDownloader:
                             async for chunk in resp.content.iter_chunked(self.chunk_size):
                                 await f.write(chunk)
                     break
-                except asyncio.TimeoutError:
+                except (
+                    asyncio.TimeoutError,
+                    aiohttp.ClientError,
+                    OSError,
+                ):
                     if attempt == self.retries:
                         log(f"Failed image: {url}", "warn")
                         raise
